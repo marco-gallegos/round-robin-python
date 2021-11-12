@@ -39,8 +39,14 @@ class Supervisor(object):
     def is_shorter_than(self, first_process: dict):
         return first_process["remainingtime"]
 
+    def move_bloqued_toready(self):
+        for process in self.queue_bloqued:
+            if process["remainingtimebloqued"] == 0:
+                self.queue_ready.append(process)
+                self.queue_bloqued.remove(process)
+
     def move_newprocess_toready(self):
-        while len(self.queue_ready) < 3:
+        while len(self.queue_ready) <= 4:
             if len(self.queue_new) == 0:
                 break
             else:
@@ -61,7 +67,9 @@ class Supervisor(object):
         # execute quuantum times
         resultado = None
         while self.execution["executed"] < self.quamtum and self.execution["remainingtime"] > 0:
-            # TODO : iterar bloqueados y aumentar su espera en 1
+            if len(self.queue_bloqued) > 0:
+                for process in self.queue_bloqued:
+                    process["remainingtimebloqued"] -= 1
             resultado = self.execution["funcion"]()
             self.execution["executed"] += 1
             self.execution["remainingtime"] -= 1
@@ -119,7 +127,7 @@ class Supervisor(object):
                 break
             if keyboard.is_pressed('b'):
                 # implementar bloqueo de 3 a 4 secs
-                current_process["remainingtimebloqued"] = random.randint(3, 4)
+                current_process["remainingtimebloqued"] = random.randint(0, 4)
                 self.queue_bloqued.append(current_process)
                 self.execution = None
                 continue
