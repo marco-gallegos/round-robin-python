@@ -31,6 +31,7 @@ class Supervisor(object):
             process.update({
                 "remainingtime": process["tiempo_ejecucion"],
                 "executed": 0,
+                "remainingtimebloqued": 0,
             })
             # print(process)
             self.queue_new.append(process)
@@ -39,7 +40,6 @@ class Supervisor(object):
         return first_process["remainingtime"]
 
     def move_newprocess_toready(self):
-        # TODO : actualizar para considerar bloqueados y
         while len(self.queue_ready) < 3:
             if len(self.queue_new) == 0:
                 break
@@ -57,6 +57,21 @@ class Supervisor(object):
         ]
         print(tabulate(resume, headers=["concepto", "valores"], tablefmt="fancy_grid"))
 
+    def execute_until_quantum_is_over(self):
+        # execute quuantum times
+        resultado = None
+        while self.execution["executed"] < self.quamtum and self.execution["remainingtime"] > 0:
+            # TODO : iterar bloqueados y aumentar su espera en 1
+            resultado = self.execution["funcion"]()
+            self.execution["executed"] += 1
+            self.execution["remainingtime"] -= 1
+        print("finalizado", self.execution)
+        # si no ha terminado regresar a ready para su execucion
+        if self.execution["remainingtime"] > 0:
+            self.execution["executed"] = 0
+            self.queue_ready.append(self.execution)
+
+
     def execute_process(self):
         """
         round robin logic
@@ -69,9 +84,12 @@ class Supervisor(object):
         :param process:
         :return:
         """
+        # ciclo con la ejecucion rr para llenar el quantum
+        self.execute_until_quantum_is_over()
 
-        print(f"proceso en ejecucion {self.execution['id']}")
-        resultado = self.execution["funcion"]()
+        # gestion de las colas
+        if self.execution["remainingtime"] == 0:
+            self.queue_done.append(self.execution)
 
     def print_process_status(self):
         # print execution status
@@ -101,15 +119,17 @@ class Supervisor(object):
                 break
             if keyboard.is_pressed('b'):
                 # implementar bloqueo de 3 a 4 secs
+                current_process["remainingtimebloqued"] = random.randint(3, 4)
+                self.queue_bloqued.append(current_process)
+                self.execution = None
                 continue
-            # if dont have a kboard interrpt now we proced
             self.execute_process()
             #executed_correctly += 1
 
         # execution resume
         resume = [
             ["total procesos", f"{execution_queue_size}"],
-            ["ejecutados correctamente", f"{executed_correctly}"],
+            ["ejecutados correctamente", f"{len(self.queue_done)}"],
             ["abortados", f"{aborted}"],
             ["abortados numero proceso", ",".join([str(x) for x in aborted_processes])],
         ]
